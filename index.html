@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css"
+          href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <style>
+        em {
+            font-weight: bold;
+        }
+
+        #step_2 {
+            margin: 64px 0;
+        }
+
+        #step_2_target {
+            margin-top: 32px;
+        }
+
+        #step_2_target .input-group {
+            margin-top: 32px;
+        }
+
+        #step_2_target span {
+            min-width:  120px;
+        }
+
+        #step_2_target input {
+            min-width:  600px;
+        }
+
+        footer {
+            border-top: 1px solid #777;
+            margin: 64px 0;
+            padding-top: 16px;
+        }
+
+    </style>
+</head>
+<body>
+<div class="jumbotron">
+    <div class="container">
+        <h1>Slack OAuth helper</h1>
+    </div>
+</div>
+<div class="container">
+    <div class="col-md-12">
+        <h2>What is this?</h2>
+        <p>
+            Certain Slack APIs (e.g. file upload) require an annoying OAuth token to access, and setting that up for yourself can be a pain in the ass. However, these tokens don't automatically expire so you can just generate these however you wish and then just use them.
+        </p>
+        <p>
+            This page is an attempt to make this process less painful. You can alternatively follow Slack's own guide on how to create a "Add to Slack" -button at
+            <a href="https://api.slack.com/docs/slack-button">https://api.slack.com/docs/slack-button</a>.
+        </p>
+        <p>
+            You will need to first create a Slack App (you can keep it private and not publish it) at
+            <a href="https://api.slack.com/apps/new">https://api.slack.com/apps/new</a>.
+            We will need your Client ID and Secret for these steps. If you don't trust this, you can self-host this page (even localhost -URLs seem to work).
+        </p>
+    </div>
+    <div class="col-md-12 hidden well" id="step_2">
+        <h2>Step 2. Convert the code to a full token</h2>
+        <p>Now that we've got the OAuth "code", we'll exchange that for the real token.</p>
+        <p>This is where you'll need your Client Secret</p>
+        <form id="step_2_form" action="https://slack.com/api/oauth.access"
+              method="post">
+            <div class="form-group">
+                <label for="client_id2">Client ID</label>
+                <input name="client_id" class="form-control" id="client_id2"
+                       placeholder="Your App's Client ID">
+            </div>
+            <div class="form-group">
+                <label for="client_secret">Client Secret</label>
+                <input name="client_secret" class="form-control"
+                       id="client_secret"
+                       placeholder="Your App's Client Secret">
+            </div>
+            <div class="form-group">
+                <label for="code">Code</label>
+                <input name="code" class="form-control"
+                       id="code"
+                       placeholder="Your OAuth Code">
+            </div>
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
+        <div id="step_2_target"></div>
+    </div>
+    <div class="col-md-12 well">
+        <h2>Step 1. Get your OAuth token code</h2>
+        <p>
+            To get you to make the OAuth authorization you need to first fill in a few details.
+        </p>
+        <form>
+            <h3>Basic details</h3>
+            <div class="form-group">
+                <label for="client_id">Client ID</label>
+                <input class="form-control" id="client_id"
+                       placeholder="Your App's Client ID">
+            </div>
+            <h3>Scopes</h3>
+            <div class="scopes">
+                <div class="checkbox">
+                    <label>
+                        <input name="incoming-webhook"
+                               type="checkbox"> Incoming webhook
+                    </label>
+                </div>
+                <div class="checkbox">
+                    <label>
+                        <input name="commands" type="checkbox"> Commands
+                    </label>
+                </div>
+                <div class="checkbox">
+                    <label>
+                        <input name="bot" type="checkbox"> Bot
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="custom_scopes">Custom scopes (separate with space or comma)</label>
+                    <input class="form-control" id="custom_scopes"
+                           placeholder="E.g. files:write:user">
+                </div>
+            </div>
+        </form>
+        <p>Once you've filled in the details above, you should see a button below. Click it to start the OAuth process. You'll get back on this page for step 2 after that.</p>
+        <div id="step_1_target"></div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="col-md-12">
+        <footer class="footer">
+            <em>Disclaimers etc.</em>:
+            Slack OAuth authorization helper by Janne Enberg aka. <a
+                href="http://github.com/lietu">Lietu</a>.
+            No Slack is not involved in any way with this.
+            Use at your own risk blah blah blah.
+            No I don't own rights to the Slack name.
+            No I will not guarantee anything.
+            No I don't owe you money.
+            No you don't owe me money.
+            No I didn't get money for making this.
+            No I will not fix your bot or your integration.
+            Yes, there is a chance that your OAuth tokens show up in someone's web server access logs, but I sure don't get them.
+            Don't trust me?
+            Good, you shouldn't.
+            Just review the code (I've kept it simple) and host this yourself.
+            It works fine even when hosted on http://localhost:8000/ or some such.
+        </footer>
+    </div>
+</div>
+
+<script>
+    var CHECKBOX_SELECTOR = ".scopes input[type=checkbox]";
+    var STEP_1_TARGET = document.getElementById("step_1_target");
+    var STEP_2_TARGET = document.getElementById("step_2_target");
+    var ADD_TO_SLACK = '<img alt="Add to Slack" height="40" width="139" src="https://platform.slack-edge.com/img/add_to_slack.png" srcset="https://platform.slack-edge.com/img/add_to_slack.png 1x, https://platform.slack-edge.com/img/add_to_slack@2x.png 2x" />';
+    var STEP_2_FORM = document.getElementById("step_2_form");
+
+    function get_scopes() {
+        var checkboxes = document.querySelectorAll(CHECKBOX_SELECTOR);
+        var custom = document.getElementById("custom_scopes").value;
+        var scopes = [];
+        var i;
+
+        for (i = 0; i < checkboxes.length; i += 1) {
+            var checkbox = checkboxes[i];
+            if (checkbox.checked) {
+                scopes.push(checkbox.name);
+            }
+        }
+
+        custom = custom.replace(/,/g, " ").replace(/ +/g, " ");
+        if (custom) {
+            var customList = custom.split(" ");
+            for (i = 0; i < customList.length; i += 1) {
+                scopes.push(customList[i]);
+            }
+        }
+
+        if (!scopes.length) {
+            throw new Error("No scopes selected");
+        }
+
+        console.log("Scopes: ", scopes);
+
+        return scopes.join(",");
+    }
+
+    function get_href() {
+        var scopes = get_scopes();
+        var client_id = document.getElementById("client_id").value;
+
+        if (!client_id) {
+            throw new Error("No client ID defined");
+        }
+
+        console.log("Client ID: ", client_id);
+
+        return "https://slack.com/oauth/authorize?scope=" + scopes + "&client_id=" + client_id + "&state=" + client_id;
+    }
+
+    function get_button() {
+        var href = get_href();
+        var button = document.createElement("A");
+        button.href = href;
+        button.innerHTML = ADD_TO_SLACK;
+
+        console.log("Button points to: ", href);
+
+        return button;
+    }
+
+    function clear(element) {
+        while (element.lastChild) {
+            element.removeChild(element.lastChild);
+        }
+    }
+
+    function cut_off(str, separator) {
+        var pos = str.indexOf(separator);
+        if (pos >= 0) {
+            str = str.substr(0, pos)
+        }
+        return str;
+    }
+
+    function get_base_url() {
+        var url = String(window.location);
+
+        url = cut_off(url, "?");
+        url = cut_off(url, "#");
+
+        console.log("Base URL: ", url);
+    }
+
+    function update_current_url() {
+        var container = document.getElementById("current_url");
+        container.textContent = get_base_url();
+    }
+
+    function parse_args() {
+        var result = {};
+        var paramString = window.location.search.substr(1);
+
+        if (paramString) {
+            var params = paramString.split("&");
+            for (var i = 0; i < params.length; i += 1) {
+                var kv = params[i].split("=");
+                result[kv[0]] = kv[1];
+            }
+        }
+
+        return result;
+    }
+
+    function check_step_1() {
+        var args = parse_args();
+        if (args.code) {
+            return args;
+        }
+        return false;
+    }
+
+    function get_step_2_data() {
+        var data = {};
+        var inputs = STEP_2_FORM.querySelectorAll("input");
+        for (var i = 0; i < inputs.length; i += 1) {
+            var input = inputs[i];
+
+            if (!input.value) {
+                throw new Error("Value for " + input.name + " is not valid");
+            }
+
+            data[input.name] = input.value;
+        }
+
+        console.log("Data for OAuth access: ", data);
+
+        return data;
+    }
+
+    function request(url, data, handler) {
+        var DONE = 4;
+        var OK = 200;
+
+        var formData = [];
+        for (var key in data) {
+            formData.push(key + "=" + encodeURIComponent(data[key]));
+        }
+
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === DONE) {
+                if (xhr.status === OK) {
+                    handler(xhr.responseText);
+                } else {
+                    throw new Error("XHR failed with status " + xhr.status + ": " + xhr.responseText);
+                }
+            }
+        };
+
+        var body = formData.join("&");
+
+        xhr.open("POST", url, true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.send(body);
+
+        console.log("Sending request to " + url + " with data " + body);
+    }
+
+    function show_step_2_data(data) {
+        var skip = ["ok"];
+        var form = document.createElement("FORM");
+
+        var msg = document.createElement("H3");
+        msg.textContent = "Your token data";
+        form.appendChild(msg);
+
+        for (var key in data) {
+            if (skip.indexOf(key) !== -1) {
+                continue;
+            }
+
+            var div = document.createElement("DIV");
+            var label = document.createElement("SPAN");
+            var input = document.createElement("INPUT");
+
+            div.classList.add("input-group");
+            label.classList.add("input-group-addon");
+            input.classList.add("form-control");
+
+            label.textContent = key;
+            input.value = data[key];
+
+            div.appendChild(label);
+            div.appendChild(input);
+            form.appendChild(div);
+        }
+
+        STEP_2_TARGET.appendChild(form);
+    }
+
+    function step_2_submit() {
+        clear(STEP_2_TARGET);
+        try {
+            var url = STEP_2_FORM.getAttribute("action");
+            var data = get_step_2_data();
+            request(url, data, function (result) {
+                var data = JSON.parse(result);
+                console.log("OAuth exchange result: ", data);
+
+                if (!data.ok) {
+                    throw new Error("Slack API reported an error: " + data.error);
+                }
+
+                show_step_2_data(data);
+            });
+        } catch (e) {
+            var error = "Cannot submit request: " + e.message;
+            var msg = document.createElement("DIV");
+            msg.classList.add("alert");
+            msg.classList.add("alert-danger");
+            msg.textContent = error;
+            STEP_2_TARGET.appendChild(msg);
+            console.warn(error);
+        }
+    }
+
+    function hook_step_2() {
+        STEP_2_FORM.addEventListener("submit", function (event) {
+            step_2_submit();
+            event.preventDefault();
+        });
+    }
+
+    function show_step_2(data) {
+        var step_2 = document.getElementById("step_2");
+        var code = document.getElementById("code");
+        var client_id = document.getElementById("client_id");
+        var client_id2 = document.getElementById("client_id2");
+
+        if (!step_2.classList.contains("hidden")) {
+            // Already done
+            return;
+        }
+
+        step_2.classList.remove("hidden");
+        code.value = data.code;
+        client_id.value = data.state;
+        client_id2.value = data.state;
+    }
+
+    function update() {
+        var result = check_step_1();
+        if (result) {
+            show_step_2(result);
+        }
+
+        clear(STEP_1_TARGET);
+
+        try {
+            var button = get_button();
+            STEP_1_TARGET.appendChild(button);
+        } catch (e) {
+            var error = "Cannot generate button: " + e.message;
+            var msg = document.createElement("DIV");
+            msg.classList.add("alert");
+            msg.classList.add("alert-danger");
+            msg.textContent = error;
+            STEP_1_TARGET.appendChild(msg);
+            console.warn(error);
+        }
+    }
+
+    var inputs = document.querySelectorAll("input");
+    for (var i = 0; i < inputs.length; i += 1) {
+        inputs[i].addEventListener("keyup", update);
+        inputs[i].addEventListener("click", update);
+    }
+
+    hook_step_2();
+    update();
+</script>
+</body>
+</html>
