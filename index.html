@@ -24,10 +24,6 @@
             min-width:  120px;
         }
 
-        #step_2_target input {
-            min-width:  600px;
-        }
-
         footer {
             border-top: 1px solid #777;
             margin: 64px 0;
@@ -88,7 +84,10 @@
     <div class="col-md-12 well">
         <h2>Step 1. Get your OAuth token code</h2>
         <p>
-            To get you to make the OAuth authorization you need to first fill in a few details.
+            To get you to make the OAuth authorization you need to fill in a few details.
+        </p>
+        <p>
+            Before that though make sure you set up your <em>Redirect URL(s)</em> to incl. <code id="current_url">https://lietu.github.io/slack-oauth-helper/</code> in your Slack App's <em>OAuth & Permissions</em> -section.
         </p>
         <form>
             <h3>Basic details</h3>
@@ -232,6 +231,8 @@
         url = cut_off(url, "#");
 
         console.log("Base URL: ", url);
+
+        return url;
     }
 
     function update_current_url() {
@@ -420,6 +421,7 @@
     }
 
     hook_step_2();
+    update_current_url();
     update();
 </script>
 </body>
